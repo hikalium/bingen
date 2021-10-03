@@ -16,4 +16,9 @@ mod tests {
         let bin = bingen!("arm-linux-eabi", "mov r0, r1");
         assert_eq!(bin, [1, 0, 160, 225]);
     }
+    #[test]
+    fn x86_64_unknown_() {
+        let bin = bingen!("x86_64-unknown-linux-gnu", "xorl %eax, %eax");
+        assert_eq!(bin, [49, 192]);
+    }
 }

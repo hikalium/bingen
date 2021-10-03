@@ -58,10 +58,9 @@ pub fn bingen(input: TokenStream) -> TokenStream {
 
     let stdin = clang.stdin.as_mut().unwrap();
     stdin.write_all(asm.value().as_bytes()).unwrap();
-    drop(stdin);
 
     if let Some(clang_output) = clang.stdout.take() {
-        let objcopy = Command::new(clang_path.clone() + &"/bin/llvm-objcopy".to_string())
+        let objcopy = Command::new(clang_path + &"/bin/llvm-objcopy".to_string())
             .args(["-O", "binary", "-"])
             .stdin(clang_output)
             .stdout(Stdio::piped())
