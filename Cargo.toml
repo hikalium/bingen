@@ -2,6 +2,14 @@
 name = "bingen"
 version = "0.1.0"
 edition = "2018"
+authors = ["hikalium <hikalium@hikalium.com>"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/hikalium/bingen"
+description = """
+Procedure macro for bringing a compile-time compiled assembly code as a binary slice.
+"""
+keywords = ["asm", "proc-macro", "macro", "binary"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
