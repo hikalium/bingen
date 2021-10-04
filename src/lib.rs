@@ -1,10 +1,14 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
+use std::fs;
+use std::fs::File;
 use std::io::Write;
+use std::path::Path;
 use std::process::{Command, Stdio};
 use syn::parse::Parse;
 use syn::parse::ParseStream;
 use syn::{parse_macro_input, LitStr};
+use tempfile::tempdir;
 
 struct Args {
     arch: LitStr,
@@ -20,57 +24,110 @@ impl Parse for Args {
     }
 }
 
-#[proc_macro]
-pub fn bingen(input: TokenStream) -> TokenStream {
-    let Args { arch, asm } = parse_macro_input!(input as Args);
+struct LLVMPath {
+    clang: String,
+    llvm_objcopy: String,
+}
 
+#[cfg(target_os = "macos")]
+fn get_llvm_path() -> String {
     let brew = Command::new("brew")
         .args(["--prefix", "llvm"])
         .output()
         .expect("Failed to run brew command");
-    if !brew.status.success() {
-        panic!(
-            "Failed to get llvm path from brew: {}",
-            String::from_utf8_lossy(&brew.stderr)
-        );
-    }
-    let mut clang_path = String::from_utf8_lossy(&brew.stdout).to_string();
-    if clang_path.ends_with('\n') {
-        clang_path.pop();
-        if clang_path.ends_with('\r') {
-            clang_path.pop();
+    assert!(
+        brew.status.success(),
+        "Failed to get llvm path from brew: {}",
+        String::from_utf8_lossy(&brew.stderr)
+    );
+    let mut llvm_path = String::from_utf8_lossy(&brew.stdout).to_string();
+    if llvm_path.ends_with('\n') {
+        llvm_path.pop();
+        if llvm_path.ends_with('\r') {
+            llvm_path.pop();
         }
     }
-    let mut clang = Command::new(clang_path.clone() + &"/bin/clang".to_string())
+    llvm_path
+}
+
+#[cfg(not(target_os = "macos"))]
+fn get_llvm_path() -> LLVMPath {
+    let which = Command::new("which")
+        .args(["clang-8"])
+        .output()
+        .expect("Failed to run which command");
+    assert!(
+        which.status.success(),
+        "Failed to get llvm path from which: {}",
+        String::from_utf8_lossy(&which.stderr)
+    );
+    let clang_path = String::from_utf8_lossy(&which.stdout).to_string();
+    let base_path = Path::new(&clang_path)
+        .parent()
+        .expect("Failed to take a parent path")
+        .to_str()
+        .expect("Failed to convert from Path to &str")
+        .to_string();
+    return LLVMPath {
+        clang: base_path.clone() + &"/clang-8".to_string(),
+        llvm_objcopy: base_path + &"/llvm-objcopy-8".to_string(),
+    };
+}
+
+#[proc_macro]
+pub fn bingen(input: TokenStream) -> TokenStream {
+    let Args { arch, asm } = parse_macro_input!(input as Args);
+
+    let LLVMPath {
+        clang,
+        llvm_objcopy,
+    } = get_llvm_path();
+
+    let dir = tempdir().expect("Failed to create a temp dir");
+
+    let mut input = File::create(dir.path().join("bingen.S")).unwrap();
+    input.write_all(asm.value().as_bytes()).unwrap();
+
+    Command::new(clang)
         .args([
             "-target",
             &arch.value(),
             "-xassembler-with-cpp",
             "-o",
-            "-",
+            dir.path()
+                .join("bingen.o")
+                .to_str()
+                .expect("Failed to create a str from path"),
             "-c",
-            "-",
+            dir.path()
+                .join("bingen.S")
+                .to_str()
+                .expect("Failed to create a str from path"),
         ])
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
+        .output()
         .expect("Failed to run clang");
 
-    let stdin = clang.stdin.as_mut().unwrap();
-    stdin.write_all(asm.value().as_bytes()).unwrap();
+    Command::new(llvm_objcopy)
+        .args([
+            "-O",
+            "binary",
+            dir.path()
+                .join("bingen.o")
+                .to_str()
+                .expect("Failed to create a str from path"),
+            dir.path()
+                .join("bingen.bin")
+                .to_str()
+                .expect("Failed to create a str from path"),
+        ])
+        .stdout(Stdio::piped())
+        .output()
+        .expect("Failed to run objcopy");
 
-    if let Some(clang_output) = clang.stdout.take() {
-        let objcopy = Command::new(clang_path + &"/bin/llvm-objcopy".to_string())
-            .args(["-O", "binary", "-"])
-            .stdin(clang_output)
-            .stdout(Stdio::piped())
-            .spawn()
-            .unwrap();
-
-        drop(clang);
-        let output = objcopy.wait_with_output().unwrap();
-        format!("{:?}", output.stdout).parse().unwrap()
-    } else {
-        panic!("failed to take stdout of clang");
-    }
+    format!(
+        "{:?}",
+        fs::read(dir.path().join("bingen.bin")).expect("Failed to open /tmp/bingen.bin")
+    )
+    .parse()
+    .unwrap()
 }
