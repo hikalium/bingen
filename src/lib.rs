@@ -3,7 +3,6 @@ use proc_macro::TokenStream;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
-use std::path::Path;
 use std::process::{Command, Stdio};
 use syn::parse::Parse;
 use syn::parse::ParseStream;
@@ -30,7 +29,7 @@ struct LLVMPath {
 }
 
 #[cfg(target_os = "macos")]
-fn get_llvm_path() -> String {
+fn get_llvm_path() -> LLVMPath {
     let brew = Command::new("brew")
         .args(["--prefix", "llvm"])
         .output()
@@ -40,18 +39,22 @@ fn get_llvm_path() -> String {
         "Failed to get llvm path from brew: {}",
         String::from_utf8_lossy(&brew.stderr)
     );
-    let mut llvm_path = String::from_utf8_lossy(&brew.stdout).to_string();
-    if llvm_path.ends_with('\n') {
-        llvm_path.pop();
-        if llvm_path.ends_with('\r') {
-            llvm_path.pop();
+    let mut base_path = String::from_utf8_lossy(&brew.stdout).to_string();
+    if base_path.ends_with('\n') {
+        base_path.pop();
+        if base_path.ends_with('\r') {
+            base_path.pop();
         }
     }
-    llvm_path
+    LLVMPath {
+        clang: base_path.clone() + &"/bin/clang".to_string(),
+        llvm_objcopy: base_path + &"/bin/llvm-objcopy".to_string(),
+    }
 }
 
 #[cfg(not(target_os = "macos"))]
 fn get_llvm_path() -> LLVMPath {
+    use std::path::Path;
     let which = Command::new("which")
         .args(["clang-8"])
         .output()
@@ -68,10 +71,10 @@ fn get_llvm_path() -> LLVMPath {
         .to_str()
         .expect("Failed to convert from Path to &str")
         .to_string();
-    return LLVMPath {
+    LLVMPath {
         clang: base_path.clone() + &"/clang-8".to_string(),
         llvm_objcopy: base_path + &"/llvm-objcopy-8".to_string(),
-    };
+    }
 }
 
 #[proc_macro]
