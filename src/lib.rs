@@ -1,5 +1,6 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
+use std::env;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
@@ -81,10 +82,25 @@ fn get_llvm_path() -> LLVMPath {
 pub fn bingen(input: TokenStream) -> TokenStream {
     let Args { arch, asm } = parse_macro_input!(input as Args);
 
+    let env_clang_path = env::var("BINGEN_CLANG_PATH");
+    let env_objcopy_path = env::var("BINGEN_OBJCOPY_PATH");
     let LLVMPath {
         clang,
         llvm_objcopy,
-    } = get_llvm_path();
+    } = if env_clang_path.is_err() && env_objcopy_path.is_err() {
+        get_llvm_path()
+    } else {
+        LLVMPath {
+            clang: env_clang_path
+                .as_ref()
+                .expect("BINGEN_CLANG_PATH is not set")
+                .to_string(),
+            llvm_objcopy: env_objcopy_path
+                .as_ref()
+                .expect("BINGEN_OBJCOPY_PATH is not set")
+                .to_string(),
+        }
+    };
 
     let dir = tempdir().expect("Failed to create a temp dir");
 
