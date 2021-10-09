@@ -56,25 +56,20 @@ fn get_llvm_path() -> LLVMPath {
 #[cfg(not(target_os = "macos"))]
 fn get_llvm_path() -> LLVMPath {
     use std::path::Path;
-    let which = Command::new("which")
-        .args(["clang-8"])
+    let bindir = Command::new("llvm-config")
+        .args(["--bindir"])
         .output()
-        .expect("Failed to run which command");
+        .expect("Failed to run llvm-config --bindir command");
     assert!(
-        which.status.success(),
+        bindir.status.success(),
         "Failed to get llvm path from which: {}",
-        String::from_utf8_lossy(&which.stderr)
+        String::from_utf8_lossy(&bindir.stderr)
     );
-    let clang_path = String::from_utf8_lossy(&which.stdout).to_string();
-    let base_path = Path::new(&clang_path)
-        .parent()
-        .expect("Failed to take a parent path")
-        .to_str()
-        .expect("Failed to convert from Path to &str")
-        .to_string();
+    let bindir = String::from_utf8_lossy(&bindir.stdout).to_string();
+    let bindir = bindir.strip_suffix("\n").unwrap_or(&bindir).to_string();
     LLVMPath {
-        clang: base_path.clone() + &"/clang-8".to_string(),
-        llvm_objcopy: base_path + &"/llvm-objcopy-8".to_string(),
+        clang: bindir.clone() + &"/clang".to_string(),
+        llvm_objcopy: bindir + &"/llvm-objcopy".to_string(),
     }
 }
 
