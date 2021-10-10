@@ -4,7 +4,7 @@ Procedure macro for bringing a compile-time compiled assembly code as a binary s
 
 ```toml
 [dependencies]
-bingen = "0.2"
+bingen = "0.3"
 ```
 
 ```rust
