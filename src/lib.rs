@@ -55,21 +55,34 @@ fn get_llvm_path() -> LLVMPath {
 
 #[cfg(not(target_os = "macos"))]
 fn get_llvm_path() -> LLVMPath {
-    use std::path::Path;
-    let bindir = Command::new("llvm-config")
-        .args(["--bindir"])
-        .output()
-        .expect("Failed to run llvm-config --bindir command");
-    assert!(
-        bindir.status.success(),
-        "Failed to get llvm path from which: {}",
-        String::from_utf8_lossy(&bindir.stderr)
-    );
-    let bindir = String::from_utf8_lossy(&bindir.stdout).to_string();
-    let bindir = bindir.strip_suffix("\n").unwrap_or(&bindir).to_string();
+    let supported_versions = (6..=13).rev();
+    let mut clang_versions: Vec<String> = vec!["clang".to_string()];
+    let mut objcopy_versions: Vec<String> = vec!["llvm-objcopy".to_string()];
+    for v in supported_versions {
+        clang_versions.extend_from_slice(&[
+            format!("clang-{}", v),
+            format!("clang-{}.0", v),
+            format!("clang-{}0", v),
+        ]);
+        objcopy_versions.extend_from_slice(&[
+            format!("llvm-objcopy-{}", v),
+            format!("llvm-objcopy-{}.0", v),
+            format!("llvm-objcopy-{}0", v),
+        ]);
+    }
+
+    let clang_results = clang_versions.iter().map(|x| which::which(x));
+    let objcopy_results = objcopy_versions.iter().map(|x| which::which(x));
+    let results = clang_results.zip(objcopy_results);
+    let mut results = results.filter(|x| x.0.is_ok() && x.1.is_ok());
+
+    let path = results
+        .nth(0)
+        .unwrap_or_else(|| panic!("clang or llvm-objcopy not found"));
+
     LLVMPath {
-        clang: bindir.clone() + &"/clang".to_string(),
-        llvm_objcopy: bindir + &"/llvm-objcopy".to_string(),
+        clang: path.0.unwrap().to_string_lossy().to_string(),
+        llvm_objcopy: path.1.unwrap().to_string_lossy().to_string(),
     }
 }
 

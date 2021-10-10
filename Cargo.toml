@@ -19,3 +19,4 @@ proc-macro=true
 [dependencies]
 syn = "1.0"
 tempfile = "3"
+which = "4.2.2"
