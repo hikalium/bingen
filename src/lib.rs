@@ -24,6 +24,7 @@ impl Parse for Args {
     }
 }
 
+#[derive(Debug)]
 struct LLVMPath {
     clang: String,
     llvm_objcopy: String,
@@ -83,6 +84,18 @@ fn get_llvm_path() -> LLVMPath {
     LLVMPath {
         clang: path.0.unwrap().to_string_lossy().to_string(),
         llvm_objcopy: path.1.unwrap().to_string_lossy().to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[ignore]
+    fn print_llvm_path() {
+        let llvm_path = get_llvm_path();
+        println!("{:?}", llvm_path);
     }
 }
 
