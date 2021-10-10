@@ -107,7 +107,7 @@ pub fn bingen(input: TokenStream) -> TokenStream {
     let mut input = File::create(dir.path().join("bingen.S")).unwrap();
     input.write_all(asm.value().as_bytes()).unwrap();
 
-    Command::new(clang)
+    let result = Command::new(clang.clone())
         .args([
             "-target",
             &arch.value(),
@@ -125,8 +125,15 @@ pub fn bingen(input: TokenStream) -> TokenStream {
         ])
         .output()
         .expect("Failed to run clang");
+    assert!(
+        result.status.success(),
+        "{} returned {:?}. stderr:\n{}",
+        clang,
+        result.status.code().expect("exit code not set"),
+        String::from_utf8_lossy(&result.stderr)
+    );
 
-    Command::new(llvm_objcopy)
+    let result = Command::new(llvm_objcopy.clone())
         .args([
             "-O",
             "binary",
@@ -142,6 +149,14 @@ pub fn bingen(input: TokenStream) -> TokenStream {
         .stdout(Stdio::piped())
         .output()
         .expect("Failed to run objcopy");
+
+    assert!(
+        result.status.success(),
+        "{} returned {:?}. stderr:\n{}",
+        llvm_objcopy,
+        result.status.code().expect("exit code not set"),
+        String::from_utf8_lossy(&result.stderr)
+    );
 
     format!(
         "{:?}",
