@@ -72,13 +72,13 @@ fn get_llvm_path() -> LLVMPath {
         ]);
     }
 
-    let clang_results = clang_versions.iter().map(|x| which::which(x));
-    let objcopy_results = objcopy_versions.iter().map(|x| which::which(x));
+    let clang_results = clang_versions.iter().map(which::which);
+    let objcopy_results = objcopy_versions.iter().map(which::which);
     let results = clang_results.zip(objcopy_results);
     let mut results = results.filter(|x| x.0.is_ok() && x.1.is_ok());
 
     let path = results
-        .nth(0)
+        .next()
         .unwrap_or_else(|| panic!("clang or llvm-objcopy not found"));
 
     LLVMPath {
