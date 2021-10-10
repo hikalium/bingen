@@ -12,7 +12,7 @@ let bin = bingen!("aarch64-linux-eabi", "mrs x0, DBGDTR_EL0");
 assert_eq!(bin, [0, 4, 51, 213]);
 ```
 
-Currently, this crate supports macOS+Homebrew / Linux+llvm-8 environments by default.
+This crate automatically detects the latest installation of llvm toolchains by default.
 
 If you want to use other llvm installation, specify the paths manually like this:
 ```shell
